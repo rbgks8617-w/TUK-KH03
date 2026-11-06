@@ -9,7 +9,16 @@ const result = find('result');
 const lobby = find('lobby');
 const joinForm = find('join-form');
 const connection = find('connection');
+const waitingRoom = find('waiting-room');
+const readyButton = find('ready');
+const multiplayerStart = find('multiplayer-start');
+const discordRetry = find('discord-retry');
+const discordActivity = window.parent !== window && new URLSearchParams(location.search).has('instance_id');
+document.body.classList.toggle('discord-activity', discordActivity);
 const emptyBoard = Array(size * size).fill(null);
+const volumeInput = find('volume');
+const volumeKey = 'color-tiles-volume';
+let mode = 'home';
 let solo = { tiles: null, deadline: 0, score: 0, result: '', message: '' };
 let room;
 let session;
@@ -18,7 +27,66 @@ let online = false;
 let pending = false;
 let serverOffset = 0;
 let shownResult;
+let audio;
 const previews = new Map();
+
+try {
+  const saved = localStorage.getItem(volumeKey);
+  if (saved !== null && /^\d{1,3}$/.test(saved)) volumeInput.value = saved;
+} catch {
+  // Volume controls still work when Discord blocks browser storage.
+}
+
+function showVolume() {
+  find('volume-value').textContent = volumeInput.value + '%';
+}
+
+showVolume();
+volumeInput.addEventListener('input', () => {
+  showVolume();
+  try {
+    localStorage.setItem(volumeKey, volumeInput.value);
+  } catch {
+    // Keep the setting for this page session.
+  }
+});
+
+function unlockAudio() {
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === 'suspended') return audio.resume().catch(() => {});
+  } catch {
+    // The game can still be played when audio is unavailable.
+  }
+}
+
+function playTone(from, to, offset, duration, type = 'sine') {
+  const level = volumeInput.valueAsNumber / 100;
+  if (audio?.state !== 'running' || level === 0) return;
+  const when = audio.currentTime + offset;
+  const tone = audio.createOscillator();
+  const gain = audio.createGain();
+  tone.type = type;
+  tone.frequency.setValueAtTime(from, when);
+  tone.frequency.exponentialRampToValueAtTime(to, when + duration * 0.8);
+  gain.gain.setValueAtTime(0, when);
+  gain.gain.linearRampToValueAtTime(0.17 * level, when + 0.009);
+  gain.gain.linearRampToValueAtTime(0, when + duration);
+  tone.connect(gain).connect(audio.destination);
+  tone.start(when);
+  tone.stop(when + duration);
+}
+
+function playPops(count) {
+  for (let index = 0; index < count; index++) {
+    playTone(720 + index * 45, 270, index * 0.055, 0.12);
+  }
+}
+
+function playPenalty() {
+  playTone(290, 220, 0, 0.13, 'triangle');
+  playTone(205, 120, 0.12, 0.19, 'triangle');
+}
 
 const buttons = emptyBoard.map((_, index) => {
   const button = document.createElement('button');
@@ -92,6 +160,58 @@ function renderOpponents() {
   find('left').replaceChildren(...clockwise.slice(rightCount).reverse().map(player => previews.get(player.id).card));
 }
 
+function renderWaitingRoom(player, activeRound) {
+  waitingRoom.hidden = mode !== 'multi' || activeRound || (!discordActivity && !room);
+  if (waitingRoom.hidden) return;
+
+  const members = room?.players ?? [];
+  const everyoneReady = members.length >= 2 && members.every(member => member.connected && member.ready);
+  find('waiting-mode').textContent = (discordActivity ? 'DISCORD ACTIVITY' : 'MULTIPLAYER') +
+    ' · ' + members.length + '/5';
+  const message = !room ? 'Discord에서 함께할 준비를 하고 있어요.' :
+    !online ? '연결을 확인하고 있어요.' :
+      members.length < 2 ? '친구가 들어오면 함께 시작할 수 있어요.' :
+        everyoneReady ? '모두 준비됐어요. 방장이 시작할 수 있어요!' : '모두 준비를 누르면 시작할 수 있어요.';
+  const waitingStatus = find('waiting-status');
+  if (waitingStatus.textContent !== message) waitingStatus.textContent = message;
+  readyButton.hidden = !room;
+  readyButton.disabled = pending || !online;
+  readyButton.textContent = player.ready ? '준비 취소' : '준비';
+  readyButton.setAttribute('aria-pressed', String(Boolean(player.ready)));
+  multiplayerStart.hidden = !room || room.host !== player.id;
+  multiplayerStart.disabled = pending || !online || !everyoneReady;
+
+  const profiles = find('profiles');
+  const signature = JSON.stringify(members.map(({ id, name, avatar, ready, connected }) =>
+    [id, name, avatar, ready, connected, room.host]));
+  if (profiles.dataset.members === signature) return;
+  profiles.dataset.members = signature;
+  profiles.replaceChildren(...members.map((member, index) => {
+    const card = document.createElement('li');
+    card.className = 'profile';
+    card.style.setProperty('--float-delay', -index * 0.45 + 's');
+    card.dataset.ready = String(member.connected && member.ready);
+    const avatar = document.createElement('span');
+    avatar.className = 'profile-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = Array.from(member.name)[0];
+    if (member.avatar) {
+      const image = document.createElement('img');
+      image.alt = '';
+      image.addEventListener('error', () => image.remove(), { once: true });
+      image.src = member.avatar;
+      avatar.append(image);
+    }
+    const name = document.createElement('strong');
+    name.textContent = member.name;
+    const readiness = document.createElement('small');
+    const role = member.id === room.host ? '방장 · ' : '';
+    readiness.textContent = role + (!member.connected ? '연결 끊김' : member.ready ? '준비 완료' : '대기 중');
+    card.append(avatar, name, readiness);
+    return card;
+  }));
+}
+
 function render() {
   const player = currentPlayer();
   const tiles = player.tiles ?? emptyBoard;
@@ -110,29 +230,29 @@ function render() {
   find('player-name').textContent = room ? player.name + ' · 나' : '내 게임판';
   find('score').textContent = player.score;
   find('remaining').textContent = tiles.filter(tile => tile !== null).length;
-  lobby.hidden = Boolean(room);
-  find('room-code').textContent = room ? '방 ' + room.code + ' · ' + room.players.length + '/5' : '혼자 연습';
-  find('copy').hidden = find('leave').hidden = !room;
-  if (room) {
-    const host = room.host === player.id;
-    const activeRound = room.players.some(member => member.tiles && !member.result);
-    const ready = room.players.filter(member => member.connected).length >= 2;
-    start.disabled = pending || !online || !host || !ready || activeRound;
-    start.textContent = activeRound ? '게임 진행 중' :
-      host ? (room.round ? '다시 시작' : '함께 시작') : '방장 대기';
-    status.textContent = player.result || (active ? player.message || '빈칸을 골라 보세요.' :
-      activeRound ? '다음 판에 참가할 수 있어요.' :
-        ready ? '방장이 게임을 시작할 수 있어요.' : '두 명 이상 모이면 시작할 수 있어요.');
-  } else {
-    start.disabled = active;
-    start.textContent = player.result ? '다시 시작' : '혼자 시작';
-    status.textContent = player.result || player.message || '시작을 누르면 2분이 주어져요.';
-  }
-  renderOpponents();
+  find('home').hidden = mode !== 'home';
+  lobby.hidden = mode !== 'multi' || discordActivity || Boolean(room);
+  const roomLabel = find('room-code');
+  roomLabel.hidden = mode === 'home';
+  roomLabel.textContent = mode === 'solo' ? '혼자 연습' : discordActivity ? 'Discord 활동' :
+    room ? '방 ' + room.code + ' · ' + room.players.length + '/5' : '함께 하기';
+  find('copy').hidden = !room || discordActivity;
+  find('leave').hidden = mode === 'home';
+  find('leave').disabled = pending;
+  const activeRound = Boolean(room?.players.some(member => member.tiles && !member.result));
+  find('arena').hidden = mode !== 'solo' && !activeRound;
+  document.body.classList.toggle('playing', !find('arena').hidden);
+  renderWaitingRoom(player, activeRound);
+  start.hidden = mode !== 'solo' || !player.result;
+  status.textContent = player.message || player.result || '빈칸을 골라 보세요.';
+  status.classList.toggle('penalty', player.message === '매칭 실패 · 10초 차감');
+  if (!find('arena').hidden) renderOpponents();
   renderTime();
   if (player.result && shownResult !== player.tiles) {
     shownResult = player.tiles;
     find('result-title').textContent = player.result;
+    find('result-message').hidden = !status.classList.contains('penalty');
+    find('result-message').textContent = '매칭 실패 · 10초 차감';
     find('result-score').textContent = player.score + '점';
     if (!result.open) result.showModal();
   }
@@ -150,12 +270,16 @@ function acceptState(next) {
   render();
 }
 
-async function post(path, data) {
+async function post(path, data, signal) {
   const response = await fetch('./api/' + path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), signal
   });
   const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error);
+  if (!response.ok) {
+    const error = new Error(payload.error);
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
@@ -163,8 +287,7 @@ async function roomAction(path, data = {}) {
   if (pending) return;
   pending = true;
   try {
-    await post(path, { code: room.code, token: session.token, ...data });
-    return true;
+    return await post(path, { code: room.code, token: session.token, ...data });
   } catch (error) {
     connection.textContent = error.message;
     return false;
@@ -173,9 +296,24 @@ async function roomAction(path, data = {}) {
   }
 }
 
+function openBrowserEvents() {
+  const params = new URLSearchParams({ code: room.code, token: session.token });
+  events = new EventSource('./api/events?' + params);
+  events.onmessage = event => {
+    online = true;
+    connection.textContent = '● 실시간 연결 · ↻ 숫자는 내 자리 다음부터 시계 방향이에요.';
+    acceptState(JSON.parse(event.data));
+  };
+  events.onerror = () => {
+    online = false;
+    connection.textContent = '연결이 끊겼어요. 다시 연결하는 중…';
+    render();
+  };
+}
+
 joinForm.addEventListener('submit', async event => {
   event.preventDefault();
-  if (pending) return;
+  if (pending || mode !== 'multi') return;
   if (location.protocol === 'file:') {
     connection.textContent = '멀티플레이는 게임 서버 주소(http://localhost:8080)에서 열어 주세요.';
     return;
@@ -191,31 +329,75 @@ joinForm.addEventListener('submit', async event => {
     session = await post('join', { name: find('nickname').value, code: create ? '' : code });
     solo = { tiles: null, deadline: 0, score: 0, result: '', message: '' };
     acceptState(session.state);
-    const params = new URLSearchParams({ code: room.code, token: session.token });
-    events = new EventSource('./api/events?' + params);
-    events.onmessage = event => {
-      online = true;
-      connection.textContent = '● 실시간 연결 · ↻ 숫자는 내 자리 다음부터 시계 방향이에요.';
-      acceptState(JSON.parse(event.data));
-    };
-    events.onerror = () => {
-      online = false;
-      connection.textContent = '연결이 끊겼어요. 다시 연결하는 중…';
-      render();
-    };
+    openBrowserEvents();
   } catch (error) {
     connection.textContent = error.message;
   } finally {
     pending = false;
+    render();
   }
 });
 
+async function pollDiscord(activeSession) {
+  if (session !== activeSession) return;
+  try {
+    const next = await post('state', { code: room.code, token: activeSession.token }, AbortSignal.timeout(5000));
+    if (session !== activeSession) return;
+    online = true;
+    connection.textContent = '';
+    acceptState(next);
+  } catch (error) {
+    if (session !== activeSession) return;
+    online = false;
+    connection.textContent = '연결이 끊겼어요. 다시 연결하는 중…';
+    if (error.status === 404) {
+      room = session = undefined;
+      discordRetry.hidden = false;
+      connection.textContent = error.message;
+    }
+    render();
+  }
+  if (session === activeSession) setTimeout(() => pollDiscord(activeSession), online ? 450 : 1500);
+}
+
+async function joinDiscord() {
+  if (pending || mode !== 'multi') return;
+  pending = true;
+  discordRetry.hidden = true;
+  connection.textContent = 'Discord 활동에 연결하는 중…';
+  render();
+  try {
+    const response = await fetch('./api/discord/config');
+    const { clientId } = await response.json();
+    if (!clientId) throw new Error('Discord 활동 연결이 아직 설정되지 않았어요.');
+    const { connectDiscord } = await import('./discord-client.js');
+    session = await connectDiscord(clientId, data => post('discord/join', data));
+    online = true;
+    acceptState(session.state);
+    void pollDiscord(session);
+  } catch (error) {
+    discordRetry.hidden = false;
+    connection.textContent = error.message;
+  } finally {
+    pending = false;
+    render();
+  }
+}
+
+discordRetry.addEventListener('click', joinDiscord);
+
 find('leave').addEventListener('click', async () => {
-  if (online && !(await roomAction('leave'))) return;
-  events.close();
+  if (pending) return;
+  if (room && online && !(await roomAction('leave'))) return;
+  events?.close();
   online = false;
   room = session = undefined;
+  mode = 'home';
+  solo = { tiles: null, deadline: 0, score: 0, result: '', message: '' };
+  shownResult = undefined;
+  if (result.open) result.close();
   connection.textContent = '';
+  discordRetry.hidden = true;
   render();
 });
 
@@ -229,29 +411,60 @@ find('copy').addEventListener('click', async () => {
   }
 });
 
-start.addEventListener('click', async () => {
-  if (room) {
-    await roomAction('start');
-    render();
-    return;
-  }
-  solo = { tiles: makeBoard(), deadline: Date.now() + roundMs, score: 0, result: '', message: '빈칸을 골라 보세요.' };
+readyButton.addEventListener('click', async () => {
+  unlockAudio();
+  await roomAction('ready', { ready: !currentPlayer().ready });
   render();
 });
 
-function play(index) {
+multiplayerStart.addEventListener('click', async () => {
+  unlockAudio();
+  await roomAction('start');
+  render();
+});
+
+function startSolo() {
+  unlockAudio();
+  mode = 'solo';
+  solo = { tiles: makeBoard(), deadline: Date.now() + roundMs, score: 0, result: '', message: '빈칸을 골라 보세요.' };
+  render();
+}
+
+start.addEventListener('click', startSolo);
+find('solo-mode').addEventListener('click', startSolo);
+find('multi-mode').addEventListener('click', () => {
+  mode = 'multi';
+  render();
+  if (discordActivity) void joinDiscord();
+});
+find('open-settings').addEventListener('click', () => find('settings').showModal());
+find('sound-preview').addEventListener('click', async () => {
+  await unlockAudio();
+  playPops(1);
+});
+
+async function play(index) {
   const player = currentPlayer();
   if (!player.tiles || player.tiles[index] !== null || player.result) return;
+  unlockAudio();
   if (room) {
-    if (online) void roomAction('play', { index, round: room.round });
+    if (online) {
+      const reply = await roomAction('play', { index, round: room.round });
+      if (reply?.matched) playPops(reply.matched);
+      else if (reply?.penalty) playPenalty();
+    }
     return;
   }
   if (Date.now() >= solo.deadline) return;
   const matched = matchesAt(solo.tiles, index);
+  playPops(matched.length);
   for (const cell of matched) solo.tiles[cell] = null;
   solo.score += matched.length;
   solo.message = matched.length ? '+' + matched.length + '점!' : '매칭 실패 · 10초 차감';
-  if (!matched.length) solo.deadline -= 10_000;
+  if (!matched.length) {
+    solo.deadline -= 10_000;
+    playPenalty();
+  }
   if (solo.deadline <= Date.now()) solo.result = '시간 종료';
   else if (solo.tiles.every(tile => tile === null)) solo.result = '클리어!';
   render();

@@ -16,13 +16,23 @@
       <h1>Color Tiles<span aria-hidden="true">!</span></h1>
     </div>
     <div class="room-label">
-      <span id="room-code">혼자 연습</span>
+      <span id="room-code" hidden></span>
       <button id="copy" type="button" hidden>코드 복사</button>
-      <button id="leave" type="button" hidden>나가기</button>
+      <button id="leave" type="button" hidden>메인 화면</button>
     </div>
   </header>
 
-  <section id="lobby" class="panel lobby" aria-label="멀티플레이 입장">
+  <section id="home" class="panel home" aria-labelledby="home-title">
+    <p class="eyebrow">COLOR MATCH PUZZLE</p>
+    <h2 id="home-title">어떻게 플레이할까요?</h2>
+    <div class="home-actions">
+      <button id="solo-mode" class="action" type="button">혼자 하기</button>
+      <button id="multi-mode" class="action" type="button">함께 하기</button>
+      <button id="open-settings" type="button">설정</button>
+    </div>
+  </section>
+
+  <section id="lobby" class="panel lobby" aria-label="멀티플레이 입장" hidden>
     <div><p class="eyebrow">MULTIPLAYER · 최대 5명</p><p id="lobby-hint">친구에게 방 코드를 보내 함께 플레이하세요.</p></div>
     <form id="join-form">
       <input id="nickname" aria-label="닉네임" placeholder="닉네임" required maxlength="16">
@@ -33,12 +43,24 @@
   </section>
   <p id="connection" role="status"></p>
 
-  <div class="arena">
+  <section id="waiting-room" class="panel waiting-room" aria-labelledby="waiting-title" hidden>
+    <p class="eyebrow" id="waiting-mode">MULTIPLAYER</p>
+    <h2 id="waiting-title">시작 대기실</h2>
+    <p id="waiting-status" role="status"></p>
+    <ul id="profiles" aria-label="참가자 프로필"></ul>
+    <div class="waiting-actions">
+      <button id="ready" class="action" type="button" aria-pressed="false">준비</button>
+      <button id="multiplayer-start" type="button" hidden>함께 시작</button>
+      <button id="discord-retry" type="button" hidden>Discord 다시 연결</button>
+    </div>
+  </section>
+
+  <div id="arena" class="arena" hidden>
     <aside id="left" class="rail" aria-label="왼쪽 상대"></aside>
     <section class="panel player">
       <div class="player-heading">
         <div><p class="eyebrow">MY BOARD · 20 × 20</p><h2 id="player-name">내 게임판</h2></div>
-        <button id="start" class="action" type="button">혼자 시작</button>
+        <button id="start" class="action" type="button" hidden>다시 시작</button>
       </div>
       <section class="stats" aria-label="게임 현황">
         <div><span>점수</span><strong id="score">0</strong></div>
@@ -58,8 +80,19 @@
 
   <dialog id="result" class="panel" aria-labelledby="result-title">
     <h2 id="result-title"></h2>
+    <p id="result-message" hidden></p>
     <p>최종 점수 <strong id="result-score"></strong></p>
     <form method="dialog"><button class="action" autofocus>확인</button></form>
+  </dialog>
+
+  <dialog id="settings" class="panel" aria-labelledby="settings-title">
+    <h2 id="settings-title">설정</h2>
+    <label for="volume">효과음 크기 <output id="volume-value" for="volume">70%</output></label>
+    <input id="volume" type="range" min="0" max="100" step="1" value="70">
+    <div class="home-actions">
+      <button id="sound-preview" type="button">소리 듣기</button>
+      <form method="dialog"><button class="action">닫기</button></form>
+    </div>
   </dialog>
 </main>
 </body>

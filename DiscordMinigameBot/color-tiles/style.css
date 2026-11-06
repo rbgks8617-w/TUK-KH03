@@ -52,6 +52,47 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
 .lobby { padding: 10px 14px; }
 #lobby-hint, #connection, .rules { color: #e5cbe7; font-size: .85rem; }
 #connection { min-height: 1.7em; margin: 6px 0; }
+#connection:empty { display: none; }
+.home {
+  max-width: 650px; margin: 0 auto; padding: clamp(18px, 5vw, 52px);
+  text-align: center;
+  background: radial-gradient(ellipse at top, #70568b, var(--plum) 75%);
+}
+#home-title { margin: 6px 0 18px; font-size: clamp(1.45rem, 5vw, 2.45rem); }
+.home-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.home-actions button { min-height: 38px; }
+.home-actions .action { padding-inline: 18px; }
+.waiting-room {
+  text-align: center;
+  padding: clamp(16px, 4vw, 42px);
+  background: radial-gradient(ellipse at 50% 65%, #6b5186, transparent 74%), var(--plum);
+}
+#waiting-title { font-size: clamp(1.5rem, 4vw, 2.3rem); margin: 4px 0; }
+#waiting-status { color: #e5cbe7; }
+#profiles {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;
+  list-style: none; margin: 0; padding: 28px 0;
+}
+.profile {
+  display: grid; justify-items: center; align-content: start; gap: 4px;
+  width: 96px; padding: 10px 5px; border: 1px solid #a58ab8;
+  border-radius: 17px; background: #302642;
+  animation: profile-float 3.2s ease-in-out infinite;
+  animation-delay: var(--float-delay);
+}
+.profile[data-ready="true"] { border-color: #bfe8bb; }
+.profile strong { max-width: 100%; overflow-wrap: anywhere; }
+.profile small { color: #e5cbe7; }
+.profile[data-ready="true"] small { color: #bfe8bb; }
+.profile-avatar {
+  display: grid; place-items: center; position: relative; overflow: hidden;
+  width: 52px; aspect-ratio: 1; border-radius: 50%; background: #664e85;
+  color: var(--paper); font-size: 1.35rem;
+}
+.profile-avatar img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+.waiting-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+@keyframes profile-float { 50% { transform: translateY(-9px); } }
+@media (prefers-reduced-motion: reduce) { .profile { animation: none; } }
 button, input { font: inherit; }
 button {
   border: 1px solid #b48cb2; border-radius: 8px 10px 7px 9px;
@@ -90,6 +131,7 @@ input { min-width: 0; width: 110px; padding: 6px 8px; border: 1px solid #a589b7;
 .cell.tile { background: var(--tile); cursor: default; }
 .cell:not(.tile):not(:disabled):hover { background: #8a6c9f; }
 #status { min-height: 2.25em; padding-top: 7px; color: #ffe6bd; font-size: .82rem; }
+#status.penalty, #result-message { color: #ffc0af; font-weight: 700; }
 .opponent { padding: clamp(4px, 1vw, 11px); }
 .opponent h3 { margin: 0; font-size: .9rem; overflow-wrap: anywhere; }
 .opponent canvas { display: block; width: 100%; aspect-ratio: 1; border-radius: 5px; background: var(--ink); }
@@ -98,9 +140,43 @@ input { min-width: 0; width: 110px; padding: 6px 8px; border: 1px solid #a589b7;
 .rules { margin-top: 15px; }
 .rules summary { cursor: pointer; }
 .rules p { margin-top: 5px; }
-#result { width: min(320px, calc(100% - 24px)); padding: 20px; text-align: center; color: #fff0d8; }
-#result::backdrop { background: #211b34bb; }
+#result, #settings { width: min(350px, calc(100% - 24px)); padding: 20px; text-align: center; color: #fff0d8; }
+#result::backdrop, #settings::backdrop { background: #211b34bb; }
 #result-score { display: block; margin: 4px 0 12px; color: var(--paper); font-size: 2.5rem; }
+#settings label { display: block; margin-top: 15px; }
+#volume-value { color: var(--paper); font-weight: 700; }
+#volume { display: block; width: 100%; padding: 0; margin: 12px 0 20px; accent-color: var(--peach); }
+
+.discord-activity main { padding: 8px clamp(6px, 2vw, 18px) 12px; }
+.discord-activity .masthead { margin-bottom: 8px; }
+.discord-activity h1 { font-size: clamp(1.65rem, 5vw, 2.85rem); }
+.discord-activity.playing .masthead .eyebrow,
+.discord-activity.playing .player-heading .eyebrow { display: none; }
+.discord-activity.playing .rules { display: none; }
+.discord-activity .arena {
+  --board-limit: max(240px, calc(100dvh - 148px));
+  max-width: 920px;
+  margin-inline: auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr);
+}
+.discord-activity .player {
+  width: 100%; max-width: calc(var(--board-limit) + 16px);
+  justify-self: center; padding: 6px;
+}
+.discord-activity .player-heading { margin-bottom: 4px; }
+.discord-activity .stats { margin-bottom: 4px; }
+.discord-activity .stats div { padding: 2px 4px; }
+.discord-activity .stats strong { font-size: 1rem; }
+.discord-activity #board { padding: 2px; }
+.discord-activity .opponent { width: 100%; max-width: 140px; }
+.discord-activity #left { justify-items: end; }
+.discord-activity .rail { gap: 5px; }
+
+@media (max-width: 560px) {
+  .discord-activity .arena { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .discord-activity .player { grid-column: 1 / -1; grid-row: 1; }
+  .discord-activity .rail { grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); }
+}
 
 @media (max-width: 700px) {
   .arena { grid-template-columns: minmax(0, 1fr) minmax(0, 3.3fr) minmax(0, 1fr); }
