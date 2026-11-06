@@ -179,6 +179,15 @@ input { min-width: 0; width: 110px; padding: 6px 8px; border: 1px solid #a589b7;
 #result, #settings { width: min(350px, calc(100% - 24px)); padding: 20px; text-align: center; color: #fff0d8; }
 #result::backdrop, #settings::backdrop { background: #211b34bb; }
 #result-score { display: block; margin: 4px 0 12px; color: var(--paper); font-size: 2.5rem; }
+#ranking-pending { margin-bottom: 12px; color: #e5cbe7; font-size: .85rem; }
+#rankings { display: grid; gap: 5px; padding: 0; margin: 0 0 14px; list-style: none; }
+#rankings li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px;
+  padding: 6px 8px; border-radius: 7px; background: #302642; text-align: left;
+}
+#rankings li[data-self] { background: #5c4975; outline: 1px solid var(--peach); }
+#rankings li span { overflow-wrap: anywhere; }
+#rankings li strong { color: var(--paper); }
 #settings label { display: block; margin-top: 15px; }
 #volume-value { color: var(--paper); font-weight: 700; }
 #volume { display: block; width: 100%; padding: 0; margin: 12px 0 20px; accent-color: var(--peach); }

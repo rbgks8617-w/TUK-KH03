@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Color Tiles · MinigamesBot</title>
-  <link rel="stylesheet" href="./style.css?v=5">
+  <link rel="stylesheet" href="./style.css?v=6">
   <script defer src="./rules.js?v=3"></script>
-  <script defer src="./app.js?v=5"></script>
+  <script defer src="./app.js?v=6"></script>
 </head>
 <body>
 <main>
@@ -68,6 +68,7 @@
     <div class="waiting-actions">
       <button id="ready" class="action" type="button" aria-pressed="false">준비</button>
       <button id="multiplayer-start" type="button" hidden>함께 시작</button>
+      <button id="show-rankings" type="button" hidden>최종 순위 다시 보기</button>
       <button id="discord-retry" type="button" hidden>Discord 다시 연결</button>
       <button id="waiting-home" type="button" hidden>메인 화면으로</button>
     </div>
@@ -100,6 +101,8 @@
     <h2 id="result-title"></h2>
     <p id="result-message" hidden></p>
     <p>최종 점수 <strong id="result-score"></strong></p>
+    <p id="ranking-pending" hidden>다른 참가자의 게임이 끝나면 최종 순위가 표시돼요.</p>
+    <ol id="rankings" aria-label="최종 순위" hidden></ol>
     <form method="dialog"><button class="action" autofocus>확인</button></form>
   </dialog>
 

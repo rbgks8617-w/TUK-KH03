@@ -37,7 +37,7 @@ function send(res, status, data) {
 function state(room) {
   return {
     code: room.code, activity: Boolean(room.instanceId), host: hostOf(room).id,
-    round: room.round, now: Date.now(),
+    round: room.round, standings: room.standings, now: Date.now(),
     players: room.players.map(({ id, name, avatar, difficulty, ready, tiles, score, deadline, result, connected, message }) => ({
       id, name, avatar, difficulty, ready, tiles, score, deadline, result, connected, message
     }))
@@ -45,6 +45,15 @@ function state(room) {
 }
 
 function broadcast(room) {
+  if (room.round && !room.standings && !inRound(room)) {
+    const finishers = room.players.filter(player => player.tiles && player.result)
+      .sort((first, second) => second.score - first.score);
+    let rank = 0;
+    room.standings = finishers.map(({ id, name, score }, index) => {
+      if (!index || score !== finishers[index - 1].score) rank = index + 1;
+      return { id, name, score, rank };
+    });
+  }
   const event = 'data: ' + JSON.stringify(state(room)) + '\n\n';
   for (const stream of room.streams.values()) {
     if (stream.writableLength > 64_000) stream.destroy();
@@ -277,6 +286,7 @@ const server = createServer(async (req, res) => {
     const tiles = makeBoard();
     const deadline = Date.now() + roundMs;
     room.round++;
+    room.standings = undefined;
     for (const member of room.players) {
       Object.assign(member, {
         tiles: tiles.slice(), deadline,

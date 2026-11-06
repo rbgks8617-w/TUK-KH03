@@ -29,6 +29,7 @@ let online = false;
 let pending = false;
 let serverOffset = 0;
 let shownResult;
+let shownRankings = false;
 let audio;
 const previews = new Map();
 
@@ -186,6 +187,7 @@ function renderWaitingRoom(player, activeRound) {
   readyButton.setAttribute('aria-pressed', String(Boolean(player.ready)));
   multiplayerStart.hidden = !room || room.host !== player.id;
   multiplayerStart.disabled = pending || !online || !everyoneReady;
+  find('show-rankings').hidden = !room?.standings?.length;
   find('bot-controls').hidden = !isHost;
   find('add-bot').disabled = pending || !online || members.length >= 5;
 
@@ -268,19 +270,50 @@ function render() {
   status.classList.toggle('penalty', player.message === '매칭 실패 · 10초 차감');
   if (!find('arena').hidden) renderOpponents();
   renderTime();
-  if (player.result && shownResult !== player.tiles) {
+  if (room?.standings?.some(entry => entry.id === player.id) && !shownRankings) {
+    shownRankings = true;
     shownResult = player.tiles;
-    find('result-title').textContent = player.result;
-    find('result-message').hidden = !status.classList.contains('penalty');
-    find('result-message').textContent = '매칭 실패 · 10초 차감';
-    find('result-score').textContent = player.score + '점';
-    if (!result.open) result.showModal();
+    showResult(player, room.standings);
+  } else if (player.result && shownResult !== player.tiles) {
+    shownResult = player.tiles;
+    showResult(player);
   }
 }
+
+function showResult(player, standings) {
+  const rankings = find('rankings');
+  rankings.hidden = !standings;
+  find('ranking-pending').hidden = !room || Boolean(standings);
+  find('result-title').textContent = standings ? '최종 순위' : player.result;
+  find('result-message').hidden = player.message !== '매칭 실패 · 10초 차감';
+  const score = find('result-score');
+  score.parentElement.hidden = Boolean(standings);
+  score.textContent = player.score + '점';
+  if (standings) {
+    rankings.replaceChildren(...standings.map(entry => {
+      const row = document.createElement('li');
+      const rank = document.createElement('strong');
+      const name = document.createElement('span');
+      const points = document.createElement('strong');
+      const self = entry.id === player.id;
+      row.toggleAttribute('data-self', self);
+      rank.textContent = (standings.some(other => other !== entry && other.rank === entry.rank) ? '공동 ' : '') +
+        entry.rank + '위';
+      name.textContent = entry.name + (self ? ' · 나' : '');
+      points.textContent = entry.score + '점';
+      row.append(rank, name, points);
+      return row;
+    }));
+  }
+  if (!result.open) result.showModal();
+}
+
+find('show-rankings').addEventListener('click', () => showResult(currentPlayer(), room.standings));
 
 function acceptState(next) {
   if (room?.round !== next.round) {
     shownResult = undefined;
+    shownRankings = false;
     if (result.open) result.close();
   }
   room = next;
@@ -427,6 +460,7 @@ async function goHome() {
   mode = 'home';
   solo = { tiles: null, deadline: 0, score: 0, result: '', message: '' };
   shownResult = undefined;
+  shownRankings = false;
   if (result.open) result.close();
   connection.textContent = '';
   showDiscordNotice('');
