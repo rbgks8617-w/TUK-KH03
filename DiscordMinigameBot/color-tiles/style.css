@@ -107,8 +107,6 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
   display: grid; justify-items: center; align-content: start; gap: 4px;
   width: 96px; padding: 10px 5px; border: 1px solid #a58ab8;
   border-radius: 17px; background: #302642;
-  animation: profile-float 3.2s ease-in-out infinite;
-  animation-delay: var(--float-delay);
 }
 .profile[data-ready="true"] { border-color: #bfe8bb; }
 .profile strong { max-width: 100%; overflow-wrap: anywhere; }
@@ -118,11 +116,19 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
   display: grid; place-items: center; position: relative; overflow: hidden;
   width: 52px; aspect-ratio: 1; border-radius: 50%; background: #664e85;
   color: var(--paper); font-size: 1.35rem;
+  animation: profile-float 3.2s ease-in-out infinite;
+  animation-delay: var(--float-delay);
 }
 .profile-avatar img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
 .waiting-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+#bot-controls { align-items: center; margin-bottom: 16px; }
+#bot-difficulty {
+  font: inherit; color: inherit; background: var(--ink);
+  border: 1px solid #a589b7; border-radius: 8px; padding: 6px;
+}
+.profile button { font-size: .73rem; padding: 3px 6px; }
 @keyframes profile-float { 50% { transform: translateY(-9px); } }
-@media (prefers-reduced-motion: reduce) { .profile { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .profile-avatar { animation: none; } }
 button, input { font: inherit; }
 button {
   border: 1px solid #b48cb2; border-radius: 8px 10px 7px 9px;

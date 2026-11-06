@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Color Tiles · MinigamesBot</title>
-  <link rel="stylesheet" href="./style.css?v=4">
+  <link rel="stylesheet" href="./style.css?v=5">
   <script defer src="./rules.js?v=3"></script>
-  <script defer src="./app.js?v=3"></script>
+  <script defer src="./app.js?v=5"></script>
 </head>
 <body>
 <main>
@@ -56,6 +56,15 @@
     <p id="waiting-status" role="status"></p>
     <p id="discord-connection" class="activity-notice" role="status" hidden></p>
     <ul id="profiles" aria-label="참가자 프로필"></ul>
+    <div id="bot-controls" class="waiting-actions" hidden>
+      <label for="bot-difficulty">봇 난이도</label>
+      <select id="bot-difficulty">
+        <option value="easy">쉬움</option>
+        <option value="normal" selected>보통</option>
+        <option value="hard">어려움</option>
+      </select>
+      <button id="add-bot" type="button">봇 추가</button>
+    </div>
     <div class="waiting-actions">
       <button id="ready" class="action" type="button" aria-pressed="false">준비</button>
       <button id="multiplayer-start" type="button" hidden>함께 시작</button>

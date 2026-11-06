@@ -167,12 +167,14 @@ function renderWaitingRoom(player, activeRound) {
   if (waitingRoom.hidden) return;
 
   const members = room?.players ?? [];
-  const everyoneReady = members.length >= 2 && members.every(member => member.connected && member.ready);
+  const everyoneReady = members.length >= 2 &&
+    members.every(member => member.difficulty || (member.connected && member.ready));
+  const isHost = room?.host === player.id;
   find('waiting-mode').textContent = (discordActivity ? 'DISCORD ACTIVITY' : 'MULTIPLAYER') +
     ' · ' + members.length + '/5';
   const message = !room ? '같은 음성 채널에서 이 활동에 참가한 친구와 플레이해요.' :
     !online ? '연결을 확인하고 있어요.' :
-      members.length < 2 ? '친구가 들어오면 함께 시작할 수 있어요.' :
+      members.length < 2 ? '친구를 기다리거나 봇을 추가해 시작할 수 있어요.' :
         everyoneReady ? '모두 준비됐어요. 방장이 시작할 수 있어요!' : '모두 준비를 누르면 시작할 수 있어요.';
   const waitingStatus = find('waiting-status');
   if (waitingStatus.textContent !== message) waitingStatus.textContent = message;
@@ -184,10 +186,12 @@ function renderWaitingRoom(player, activeRound) {
   readyButton.setAttribute('aria-pressed', String(Boolean(player.ready)));
   multiplayerStart.hidden = !room || room.host !== player.id;
   multiplayerStart.disabled = pending || !online || !everyoneReady;
+  find('bot-controls').hidden = !isHost;
+  find('add-bot').disabled = pending || !online || members.length >= 5;
 
   const profiles = find('profiles');
-  const signature = JSON.stringify(members.map(({ id, name, avatar, ready, connected }) =>
-    [id, name, avatar, ready, connected, room.host]));
+  const signature = JSON.stringify([isHost, online, members.map(({ id, name, avatar, ready, connected }) =>
+    [id, name, avatar, ready, connected])]);
   if (profiles.dataset.members === signature) return;
   profiles.dataset.members = signature;
   profiles.replaceChildren(...members.map((member, index) => {
@@ -198,7 +202,7 @@ function renderWaitingRoom(player, activeRound) {
     const avatar = document.createElement('span');
     avatar.className = 'profile-avatar';
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = Array.from(member.name)[0];
+    avatar.textContent = member.difficulty ? '🤖' : Array.from(member.name)[0];
     if (member.avatar) {
       const image = document.createElement('img');
       image.alt = '';
@@ -212,6 +216,18 @@ function renderWaitingRoom(player, activeRound) {
     const role = member.id === room.host ? '방장 · ' : '';
     readiness.textContent = role + (!member.connected ? '연결 끊김' : member.ready ? '준비 완료' : '대기 중');
     card.append(avatar, name, readiness);
+    if (isHost && member.difficulty) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '제거';
+      remove.setAttribute('aria-label', member.name + ' 제거');
+      remove.disabled = !online;
+      remove.addEventListener('click', async () => {
+        await roomAction('bot/remove', { id: member.id });
+        render();
+      });
+      card.append(remove);
+    }
     return card;
   }));
 }
@@ -434,6 +450,11 @@ find('copy').addEventListener('click', async () => {
 readyButton.addEventListener('click', async () => {
   unlockAudio();
   await roomAction('ready', { ready: !currentPlayer().ready });
+  render();
+});
+
+find('add-bot').addEventListener('click', async () => {
+  await roomAction('bot/add', { difficulty: find('bot-difficulty').value });
   render();
 });
 

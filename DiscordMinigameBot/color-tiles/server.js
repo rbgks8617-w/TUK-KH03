@@ -10,6 +10,11 @@ const { clientId, verifyParticipant } = require('./discord-server');
 const rooms = new Map();
 const activityRooms = new Map();
 const activityTimeout = 12_000;
+const botLevels = new Map([
+  ['easy', { name: '쉬움', delay: 2200, missChance: 0.15 }],
+  ['normal', { name: '보통', delay: 1300, missChance: 0.07 }],
+  ['hard', { name: '어려움', delay: 650, missChance: 0 }]
+]);
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
   ['/index.html', ['index.html', 'text/html']],
@@ -31,10 +36,10 @@ function send(res, status, data) {
 
 function state(room) {
   return {
-    code: room.code, activity: Boolean(room.instanceId), host: room.players[0].id,
+    code: room.code, activity: Boolean(room.instanceId), host: hostOf(room).id,
     round: room.round, now: Date.now(),
-    players: room.players.map(({ id, name, avatar, ready, tiles, score, deadline, result, connected, message }) => ({
-      id, name, avatar, ready, tiles, score, deadline, result, connected, message
+    players: room.players.map(({ id, name, avatar, difficulty, ready, tiles, score, deadline, result, connected, message }) => ({
+      id, name, avatar, difficulty, ready, tiles, score, deadline, result, connected, message
     }))
   };
 }
@@ -60,12 +65,11 @@ function expire(room, now) {
 
 function addPlayer(room, profile) {
   const player = {
-    id: randomUUID(), token: randomUUID(), ...profile, ready: false,
-    tiles: null, score: 0, deadline: 0, result: '', connected: false, message: '',
+    id: randomUUID(), token: randomUUID(), ...profile, ready: Boolean(profile.difficulty),
+    tiles: null, score: 0, deadline: 0, result: '', connected: Boolean(profile.difficulty), message: '',
     disconnectedAt: Date.now()
   };
   room.players.push(player);
-  broadcast(room);
   return player;
 }
 
@@ -85,6 +89,48 @@ function deleteRoom(room) {
 
 function inRound(room) {
   return room.players.some(player => player.tiles && !player.result);
+}
+
+function hostOf(room) {
+  return room.players.find(player => !player.difficulty);
+}
+
+function applyMove(player, matched, now) {
+  for (const cell of matched) player.tiles[cell] = null;
+  player.score += matched.length;
+  if (matched.length) {
+    player.message = '+' + matched.length + '점!';
+    if (player.tiles.every(tile => tile === null)) player.result = '클리어!';
+  } else {
+    player.deadline -= 10_000;
+    player.message = '매칭 실패 · 10초 차감';
+    if (player.deadline <= now) player.result = '시간 종료';
+  }
+}
+
+function playBots(room, now) {
+  let moved = false;
+  for (const bot of room.players) {
+    if (!bot.difficulty || !bot.tiles || bot.result || bot.nextMove > now) continue;
+    const level = botLevels.get(bot.difficulty);
+    bot.nextMove = now + level.delay;
+    const moves = [];
+    for (let index = 0; index < bot.tiles.length; index++) {
+      if (bot.tiles[index] !== null) continue;
+      const matched = matchesAt(bot.tiles, index);
+      if (matched.length) moves.push(matched);
+    }
+    if (!moves.length) continue;
+    let matched = [];
+    if (Math.random() >= level.missChance) {
+      matched = bot.difficulty === 'hard'
+        ? moves.reduce((best, move) => move.length > best.length ? move : best)
+        : moves[Math.floor(Math.random() * moves.length)];
+    }
+    applyMove(bot, matched, now);
+    moved = true;
+  }
+  if (moved) broadcast(room);
 }
 
 async function readBody(req) {
@@ -130,7 +176,8 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (req.method !== 'POST' || ![
-    '/api/join', '/api/discord/join', '/api/state', '/api/ready', '/api/start', '/api/play', '/api/leave'
+    '/api/join', '/api/discord/join', '/api/state', '/api/ready', '/api/start', '/api/play', '/api/leave',
+    '/api/bot/add', '/api/bot/remove'
   ].includes(url.pathname)) {
     return send(res, 404, { error: '요청을 찾을 수 없어요.' });
   }
@@ -180,6 +227,7 @@ const server = createServer(async (req, res) => {
     if (inRound(room)) return send(res, 409, { error: '진행 중인 판이 끝나면 입장할 수 있어요.' });
     const player = addPlayer(room, profile);
     if (activity) Object.assign(player, { connected: true, lastSeen: Date.now() });
+    broadcast(room);
     return send(res, 200, { id: player.id, token: player.token, state: state(room) });
   }
 
@@ -198,19 +246,32 @@ const server = createServer(async (req, res) => {
     room.streams.delete(player.id);
     stream?.end();
     room.players.splice(room.players.indexOf(player), 1);
-    if (!room.players.length) deleteRoom(room);
+    if (!hostOf(room)) deleteRoom(room);
     else broadcast(room);
     return send(res, 200, {});
   }
 
-  if (url.pathname === '/api/ready') {
+  if (url.pathname === '/api/bot/add' || url.pathname === '/api/bot/remove') {
+    if (hostOf(room) !== player) return send(res, 403, { error: '방장만 봇을 관리할 수 있어요.' });
+    if (inRound(room)) return send(res, 409, { error: '게임이 끝난 뒤 봇을 변경할 수 있어요.' });
+    if (url.pathname === '/api/bot/add') {
+      const level = botLevels.get(data.difficulty);
+      if (!level) return send(res, 400, { error: '봇 난이도를 선택해 주세요.' });
+      if (room.players.length >= 5) return send(res, 409, { error: '이 방은 최대 5자리예요.' });
+      addPlayer(room, { name: '봇 · ' + level.name, difficulty: data.difficulty });
+    } else {
+      const index = room.players.findIndex(member => member.difficulty && member.id === data.id);
+      if (index < 0) return send(res, 404, { error: '이 방에서 해당 봇을 찾지 못했어요.' });
+      room.players.splice(index, 1);
+    }
+  } else if (url.pathname === '/api/ready') {
     if (!player.connected || inRound(room)) return send(res, 409, { error: '대기실에서 준비할 수 있어요.' });
     if (typeof data.ready !== 'boolean') return send(res, 400, { error: '준비 상태를 확인해 주세요.' });
     player.ready = data.ready;
   } else if (url.pathname === '/api/start') {
-    if (room.players[0] !== player) return send(res, 403, { error: '방장만 시작할 수 있어요.' });
+    if (hostOf(room) !== player) return send(res, 403, { error: '방장만 시작할 수 있어요.' });
     if (inRound(room)) return send(res, 409, { error: '이미 게임이 진행 중이에요.' });
-    if (room.players.length < 2 || !room.players.every(member => member.connected && member.ready)) {
+    if (room.players.length < 2 || !room.players.every(member => member.difficulty || (member.connected && member.ready))) {
       return send(res, 409, { error: '두 명 이상 모이고 모두 준비해야 시작할 수 있어요.' });
     }
     const tiles = makeBoard();
@@ -219,7 +280,8 @@ const server = createServer(async (req, res) => {
     for (const member of room.players) {
       Object.assign(member, {
         tiles: tiles.slice(), deadline,
-        score: 0, result: '', message: '', ready: false
+        score: 0, result: '', message: '', ready: Boolean(member.difficulty),
+        nextMove: member.difficulty ? now + botLevels.get(member.difficulty).delay : undefined
       });
     }
   } else if (url.pathname === '/api/play') {
@@ -231,16 +293,7 @@ const server = createServer(async (req, res) => {
       return send(res, 400, { error: '빈칸을 눌러 주세요.' });
     }
     const matched = matchesAt(player.tiles, index);
-    for (const cell of matched) player.tiles[cell] = null;
-    player.score += matched.length;
-    if (matched.length) {
-      player.message = '+' + matched.length + '점!';
-      if (player.tiles.every(tile => tile === null)) player.result = '클리어!';
-    } else {
-      player.deadline -= 10_000;
-      player.message = '매칭 실패 · 10초 차감';
-      if (player.deadline <= now) player.result = '시간 종료';
-    }
+    applyMove(player, matched, now);
     broadcast(room);
     return send(res, 200, { matched: matched.length, penalty: matched.length === 0 });
   } else {
@@ -256,15 +309,18 @@ setInterval(() => {
     expire(room, now);
     if (room.instanceId) {
       for (const player of room.players) {
-        if (player.connected && now - player.lastSeen >= activityTimeout) {
+        if (!player.difficulty && player.connected && now - player.lastSeen >= activityTimeout) {
           Object.assign(player, { connected: false, ready: false, disconnectedAt: now });
         }
       }
     }
-    if (inRound(room)) continue;
+    if (inRound(room)) {
+      if (room.players.some(player => !player.difficulty && player.connected)) playBots(room, now);
+      continue;
+    }
     const present = room.players.filter(player =>
-      player.connected || (!room.instanceId && now - player.disconnectedAt < 45_000));
-    if (!present.length) deleteRoom(room);
+      player.difficulty || player.connected || (!room.instanceId && now - player.disconnectedAt < 45_000));
+    if (!present.some(player => !player.difficulty)) deleteRoom(room);
     else if (present.length !== room.players.length) {
       room.players = present;
       broadcast(room);
