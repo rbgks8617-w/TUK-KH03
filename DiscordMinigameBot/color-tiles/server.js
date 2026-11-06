@@ -11,6 +11,8 @@ const assets = new Map([
   ['/', ['index.html', 'text/html']],
   ['/index.html', ['index.html', 'text/html']],
   ['/style.css', ['style.css', 'text/css']],
+  ['/fonts/LevelUp-Regular.woff2', ['fonts/LevelUp-Regular.woff2', 'font/woff2']],
+  ['/fonts/LevelUp-Bold.woff2', ['fonts/LevelUp-Bold.woff2', 'font/woff2']],
   ['/rules.js', ['rules.js', 'text/javascript']],
   ['/app.js', ['app.js', 'text/javascript']]
 ].map(([path, [file, type]]) => [path, [readFileSync(join(__dirname, file)), type]]));
@@ -72,7 +74,8 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const asset = assets.get(url.pathname);
   if (req.method === 'GET' && asset) {
-    res.writeHead(200, { 'Content-Type': asset[1] + '; charset=utf-8' });
+    const type = asset[1].startsWith('text/') ? asset[1] + '; charset=utf-8' : asset[1];
+    res.writeHead(200, { 'Content-Type': type });
     return res.end(asset[0]);
   }
   if (req.method === 'GET' && url.pathname === '/api/events') {

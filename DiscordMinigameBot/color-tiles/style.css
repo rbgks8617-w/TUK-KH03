@@ -1,6 +1,20 @@
+@font-face {
+  font-family: LevelUp;
+  src: url("./fonts/LevelUp-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: LevelUp;
+  src: url("./fonts/LevelUp-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
-  font: 15px/1.45 system-ui, sans-serif;
+  font: 15px/1.45 LevelUp, system-ui, sans-serif;
   color: #fff0d8;
   background: #25203d;
   --ink: #211b34;
