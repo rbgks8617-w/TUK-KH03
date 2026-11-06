@@ -55,15 +55,18 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
 #connection:empty { display: none; }
 .home {
   max-width: 720px; margin: 0 auto; padding: clamp(14px, 4vw, 32px);
+  text-align: center;
   background: radial-gradient(ellipse at 85% 0%, #604778, transparent 70%), #352a49;
 }
-.home-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
-.home-heading button { flex: none; }
+#open-settings { margin-top: 14px; }
 #home-title { margin: 4px 0 16px; font-size: clamp(1.15rem, 4vw, 1.85rem); }
-.mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mode-options {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  max-width: 500px; margin-inline: auto;
+}
 .mode-card {
-  display: grid; justify-items: start; align-content: center; gap: 5px;
-  min-height: 142px; padding: clamp(10px, 3vw, 20px); text-align: left;
+  display: grid; justify-items: center; align-content: center; gap: 5px;
+  min-height: 142px; padding: clamp(10px, 3vw, 20px); text-align: center;
   background: #4e3c64; border: 1px solid #a98cbf; border-radius: 14px;
   box-shadow: 0 3px #211b34; transition: background-color 150ms, border-color 150ms;
 }
@@ -206,7 +209,7 @@ input { min-width: 0; width: 110px; padding: 6px 8px; border: 1px solid #a589b7;
 }
 
 @media (max-width: 360px) {
-  .home-heading { align-items: center; margin-bottom: 10px; }
+  .home-heading { margin-bottom: 10px; }
   #home-title { margin-bottom: 0; }
   .mode-options { gap: 7px; }
   .mode-card { min-height: 120px; }
