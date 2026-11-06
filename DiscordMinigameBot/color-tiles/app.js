@@ -13,8 +13,10 @@ const waitingRoom = find('waiting-room');
 const readyButton = find('ready');
 const multiplayerStart = find('multiplayer-start');
 const discordRetry = find('discord-retry');
+const discordNotice = find('discord-connection');
 const discordActivity = window.parent !== window && new URLSearchParams(location.search).has('instance_id');
 document.body.classList.toggle('discord-activity', discordActivity);
+if (discordActivity) find('multi-description').textContent = '같은 Discord 활동의 친구와 플레이';
 const emptyBoard = Array(size * size).fill(null);
 const volumeInput = find('volume');
 const volumeKey = 'color-tiles-volume';
@@ -168,12 +170,14 @@ function renderWaitingRoom(player, activeRound) {
   const everyoneReady = members.length >= 2 && members.every(member => member.connected && member.ready);
   find('waiting-mode').textContent = (discordActivity ? 'DISCORD ACTIVITY' : 'MULTIPLAYER') +
     ' · ' + members.length + '/5';
-  const message = !room ? 'Discord에서 함께할 준비를 하고 있어요.' :
+  const message = !room ? '같은 음성 채널에서 이 활동에 참가한 친구와 플레이해요.' :
     !online ? '연결을 확인하고 있어요.' :
       members.length < 2 ? '친구가 들어오면 함께 시작할 수 있어요.' :
         everyoneReady ? '모두 준비됐어요. 방장이 시작할 수 있어요!' : '모두 준비를 누르면 시작할 수 있어요.';
   const waitingStatus = find('waiting-status');
   if (waitingStatus.textContent !== message) waitingStatus.textContent = message;
+  find('waiting-home').hidden = Boolean(room);
+  find('waiting-home').disabled = pending;
   readyButton.hidden = !room;
   readyButton.disabled = pending || !online;
   readyButton.textContent = player.ready ? '준비 취소' : '준비';
@@ -353,31 +357,43 @@ async function pollDiscord(activeSession) {
     if (error.status === 404) {
       room = session = undefined;
       discordRetry.hidden = false;
-      connection.textContent = error.message;
+      connection.textContent = '';
+      showDiscordNotice(error.message, true);
     }
     render();
   }
   if (session === activeSession) setTimeout(() => pollDiscord(activeSession), online ? 450 : 1500);
 }
 
+function showDiscordNotice(message, error = false) {
+  discordNotice.textContent = message;
+  discordNotice.hidden = !message;
+  discordNotice.classList.toggle('error', error);
+}
+
 async function joinDiscord() {
   if (pending || mode !== 'multi') return;
   pending = true;
   discordRetry.hidden = true;
-  connection.textContent = 'Discord 활동에 연결하는 중…';
+  showDiscordNotice('Discord 활동에 연결하는 중…');
   render();
   try {
-    const response = await fetch('./api/discord/config');
+    const response = await fetch('./api/discord/config', { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error('Discord 연결 설정을 불러오지 못했어요.');
     const { clientId } = await response.json();
-    if (!clientId) throw new Error('Discord 활동 연결이 아직 설정되지 않았어요.');
-    const { connectDiscord } = await import('./discord-client.js');
-    session = await connectDiscord(clientId, data => post('discord/join', data));
+    if (!clientId) {
+      showDiscordNotice('서버에 Discord 연결 설정이 빠져 있어요. 지금은 메인 화면에서 혼자 할 수 있어요.', true);
+      return;
+    }
+    const { connectDiscord } = await import('./discord-client.js?v=3');
+    session = await connectDiscord(clientId, data => post('discord/join', data, AbortSignal.timeout(20_000)));
     online = true;
+    showDiscordNotice('');
     acceptState(session.state);
     void pollDiscord(session);
   } catch (error) {
     discordRetry.hidden = false;
-    connection.textContent = error.message;
+    showDiscordNotice(error.message || 'Discord에 연결하지 못했어요. 다시 시도해 주세요.', true);
   } finally {
     pending = false;
     render();
@@ -386,7 +402,7 @@ async function joinDiscord() {
 
 discordRetry.addEventListener('click', joinDiscord);
 
-find('leave').addEventListener('click', async () => {
+async function goHome() {
   if (pending) return;
   if (room && online && !(await roomAction('leave'))) return;
   events?.close();
@@ -397,9 +413,13 @@ find('leave').addEventListener('click', async () => {
   shownResult = undefined;
   if (result.open) result.close();
   connection.textContent = '';
+  showDiscordNotice('');
   discordRetry.hidden = true;
   render();
-});
+}
+
+find('leave').addEventListener('click', goHome);
+find('waiting-home').addEventListener('click', goHome);
 
 find('copy').addEventListener('click', async () => {
   const code = room.code;

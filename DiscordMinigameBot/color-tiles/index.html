@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Color Tiles · MinigamesBot</title>
-  <link rel="stylesheet" href="./style.css">
-  <script defer src="./rules.js"></script>
-  <script defer src="./app.js"></script>
+  <link rel="stylesheet" href="./style.css?v=3">
+  <script defer src="./rules.js?v=3"></script>
+  <script defer src="./app.js?v=3"></script>
 </head>
 <body>
 <main>
@@ -23,12 +23,19 @@
   </header>
 
   <section id="home" class="panel home" aria-labelledby="home-title">
-    <p class="eyebrow">COLOR MATCH PUZZLE</p>
-    <h2 id="home-title">어떻게 플레이할까요?</h2>
-    <div class="home-actions">
-      <button id="solo-mode" class="action" type="button">혼자 하기</button>
-      <button id="multi-mode" class="action" type="button">함께 하기</button>
-      <button id="open-settings" type="button">설정</button>
+    <div class="home-heading">
+      <div><p class="eyebrow">플레이 모드</p><h2 id="home-title">오늘은 어떻게 플레이할까요?</h2></div>
+      <button id="open-settings" type="button">⚙ 설정</button>
+    </div>
+    <div class="mode-options">
+      <button id="solo-mode" class="mode-card solo-card" type="button">
+        <span class="mode-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <strong>혼자 하기</strong><small>2분 동안 타일 지우기</small>
+      </button>
+      <button id="multi-mode" class="mode-card multi-card" type="button">
+        <span class="mode-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <strong>함께 하기</strong><small id="multi-description">친구와 함께 · 최대 5명</small>
+      </button>
     </div>
   </section>
 
@@ -47,11 +54,13 @@
     <p class="eyebrow" id="waiting-mode">MULTIPLAYER</p>
     <h2 id="waiting-title">시작 대기실</h2>
     <p id="waiting-status" role="status"></p>
+    <p id="discord-connection" class="activity-notice" role="status" hidden></p>
     <ul id="profiles" aria-label="참가자 프로필"></ul>
     <div class="waiting-actions">
       <button id="ready" class="action" type="button" aria-pressed="false">준비</button>
       <button id="multiplayer-start" type="button" hidden>함께 시작</button>
       <button id="discord-retry" type="button" hidden>Discord 다시 연결</button>
+      <button id="waiting-home" type="button" hidden>메인 화면으로</button>
     </div>
   </section>
 

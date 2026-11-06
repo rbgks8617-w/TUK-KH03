@@ -54,11 +54,31 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
 #connection { min-height: 1.7em; margin: 6px 0; }
 #connection:empty { display: none; }
 .home {
-  max-width: 650px; margin: 0 auto; padding: clamp(18px, 5vw, 52px);
-  text-align: center;
-  background: radial-gradient(ellipse at top, #70568b, var(--plum) 75%);
+  max-width: 720px; margin: 0 auto; padding: clamp(14px, 4vw, 32px);
+  background: radial-gradient(ellipse at 85% 0%, #604778, transparent 70%), #352a49;
 }
-#home-title { margin: 6px 0 18px; font-size: clamp(1.45rem, 5vw, 2.45rem); }
+.home-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.home-heading button { flex: none; }
+#home-title { margin: 4px 0 16px; font-size: clamp(1.15rem, 4vw, 1.85rem); }
+.mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mode-card {
+  display: grid; justify-items: start; align-content: center; gap: 5px;
+  min-height: 142px; padding: clamp(10px, 3vw, 20px); text-align: left;
+  background: #4e3c64; border: 1px solid #a98cbf; border-radius: 14px;
+  box-shadow: 0 3px #211b34; transition: background-color 150ms, border-color 150ms;
+}
+.multi-card { background: #353e66; border-color: #899acc; }
+.mode-card:hover, .mode-card:focus-visible { background: #644e7f; border-color: #ffe6bd; }
+.multi-card:hover, .multi-card:focus-visible { background: #445284; }
+.mode-card strong { font-size: clamp(1.05rem, 4vw, 1.45rem); }
+.mode-card small { color: #eee1f0; overflow-wrap: anywhere; }
+.mode-icon { display: grid; grid-template-columns: repeat(2, 8px); gap: 3px; margin-bottom: 4px; }
+.mode-icon i { width: 8px; height: 8px; border-radius: 2px; background: #f4aa98; }
+.mode-icon i:nth-child(2) { background: #ffe6bd; }
+.mode-icon i:nth-child(3) { background: #c8b5fa; }
+.mode-icon i:nth-child(4) { opacity: .35; }
+.multi-card .mode-icon i:first-child { background: #a0dfcd; }
+.multi-card .mode-icon i:nth-child(4) { opacity: 1; background: #aebdff; }
 .home-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .home-actions button { min-height: 38px; }
 .home-actions .action { padding-inline: 18px; }
@@ -69,10 +89,17 @@ h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
 }
 #waiting-title { font-size: clamp(1.5rem, 4vw, 2.3rem); margin: 4px 0; }
 #waiting-status { color: #e5cbe7; }
+.activity-notice {
+  max-width: 470px; margin: 12px auto; padding: 10px 12px;
+  border-radius: 9px; color: #e8edff; background: #373c61;
+}
+.activity-notice.error { color: #ffe3d9; background: #583449; border: 1px solid #ae7180; }
 #profiles {
   display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;
   list-style: none; margin: 0; padding: 28px 0;
 }
+#profiles:empty { display: none; }
+#profiles:empty + .waiting-actions { margin-top: 12px; }
 .profile {
   display: grid; justify-items: center; align-content: start; gap: 4px;
   width: 96px; padding: 10px 5px; border: 1px solid #a58ab8;
@@ -176,6 +203,17 @@ input { min-width: 0; width: 110px; padding: 6px 8px; border: 1px solid #a589b7;
   .discord-activity .arena { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .discord-activity .player { grid-column: 1 / -1; grid-row: 1; }
   .discord-activity .rail { grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); }
+}
+
+@media (max-width: 360px) {
+  .home-heading { align-items: center; margin-bottom: 10px; }
+  #home-title { margin-bottom: 0; }
+  .mode-options { gap: 7px; }
+  .mode-card { min-height: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card { transition: none; }
 }
 
 @media (max-width: 700px) {

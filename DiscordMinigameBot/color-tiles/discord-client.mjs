@@ -39,22 +39,26 @@ export async function connectDiscord(clientId, join) {
     window.addEventListener('message', limitDiscordMessage, { capture: true });
     discord = new DiscordSDK(clientId, { disableConsoleLogOverride: true });
   }
+  await withTimeout(discord.ready(), 10_000, 'Discord 연결 시간이 초과됐어요.');
+  const { code } = await withTimeout(discord.commands.authorize({
+    client_id: clientId,
+    response_type: 'code',
+    prompt: 'none',
+    scope: ['identify']
+  }), 30_000, 'Discord 인증 시간이 초과됐어요. 다시 연결해 주세요.');
+  return join({ authorizationCode: code, instanceId: discord.instanceId });
+}
+
+async function withTimeout(request, duration, message) {
   let timeout;
   try {
-    await Promise.race([
-      discord.ready(),
+    return await Promise.race([
+      request,
       new Promise((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('Discord 연결 시간이 초과됐어요.')), 10_000);
+        timeout = setTimeout(() => reject(new Error(message)), duration);
       })
     ]);
   } finally {
     clearTimeout(timeout);
   }
-  const { code } = await discord.commands.authorize({
-    client_id: clientId,
-    response_type: 'code',
-    prompt: 'none',
-    scope: ['identify']
-  });
-  return join({ authorizationCode: code, instanceId: discord.instanceId });
 }

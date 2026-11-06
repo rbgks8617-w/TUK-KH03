@@ -104,7 +104,7 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && asset) {
     const type = asset[1].startsWith('text/') ? asset[1] + '; charset=utf-8' : asset[1];
-    res.writeHead(200, { 'Content-Type': type });
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
     return res.end(asset[0]);
   }
   if (req.method === 'GET' && url.pathname === '/api/events') {
