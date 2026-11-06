@@ -4,270 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Color Tiles · MinigamesBot</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: system-ui, sans-serif;
-      background: #101020;
-      color: #f7f4ff;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; }
-    main { max-width: 760px; margin: auto; padding: 24px 16px; }
-    header { margin-bottom: 18px; }
-    .brand { color: #c2aaff; font-size: .75rem; font-weight: 800; letter-spacing: .18em; }
-    h1 { margin: 4px 0 8px; font-size: clamp(2rem, 8vw, 3rem); line-height: 1; }
-    p { margin: 0; }
-    .rules { color: #ccc7e0; font-size: .9rem; line-height: 1.55; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .stats div { background: #211d37; border-radius: 12px; padding: 8px 12px; }
-    .stats span { display: block; color: #ccc7e0; font-size: .75rem; }
-    .stats strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
-    #time.urgent { color: #ff9c9e; }
-    .board-scroll { overflow: auto; border-radius: 14px; }
-    #board {
-      display: grid;
-      grid-template-columns: repeat(20, minmax(0, 1fr));
-      min-width: 534px;
-      gap: 2px;
-      padding: 8px;
-      border-radius: 14px;
-      background: #211d37;
-    }
-    button { font: inherit; cursor: pointer; }
-    button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
-    .cell {
-      display: grid;
-      place-items: center;
-      aspect-ratio: 1;
-      min-width: 0;
-      padding: 0;
-      border: 0;
-      border-radius: 4px;
-      background: #302947;
-      touch-action: manipulation;
-    }
-    .cell.tile { background: var(--tile); cursor: default; }
-    .cell:not(.tile):not(:disabled):hover { background: #625584; }
-    #status { min-height: 3em; padding: 10px 0; font-size: .9rem; }
-    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-    .action { border: 0; border-radius: 9px; padding: 9px 16px; background: #c2aaff; color: #191229; font-weight: 800; }
-    #result {
-      width: min(320px, calc(100% - 32px));
-      padding: 24px;
-      border: 1px solid #625584;
-      border-radius: 16px;
-      background: #211d37;
-      color: #f7f4ff;
-      text-align: center;
-    }
-    #result::backdrop { background: #101020bb; }
-    #result h2 { margin: 0 0 12px; }
-    #result-score { display: block; margin: 4px 0 16px; color: #c2aaff; font-size: 2.5rem; }
-    @media (max-width: 360px) { main { padding: 14px 10px; } }
-  </style>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./rules.js"></script>
+  <script defer src="./app.js"></script>
 </head>
 <body>
 <main>
-  <header>
-    <p class="brand">MINIGAMESBOT</p>
-    <h1>Color Tiles</h1>
-    <p class="rules">빈칸을 눌러 보세요. 상하좌우에서 가장 가까운 타일 중 같은 색이 2개 이상이면 사라져요. 매칭에 실패하면 10초가 줄어요.</p>
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">MINIGAMESBOT / PUZZLE CLUB</p>
+      <h1>Color Tiles<span aria-hidden="true">!</span></h1>
+    </div>
+    <div class="room-label">
+      <span id="room-code">혼자 연습</span>
+      <button id="copy" type="button" hidden>코드 복사</button>
+      <button id="leave" type="button" hidden>나가기</button>
+    </div>
   </header>
-  <section class="stats" aria-label="게임 현황">
-    <div><span>점수</span><strong id="score">0</strong></div>
-    <div><span>남은 시간</span><strong id="time">2:00</strong></div>
-    <div><span>남은 타일</span><strong id="remaining">0</strong></div>
+
+  <section id="lobby" class="panel lobby" aria-label="멀티플레이 입장">
+    <div><p class="eyebrow">MULTIPLAYER · 최대 5명</p><p id="lobby-hint">친구에게 방 코드를 보내 함께 플레이하세요.</p></div>
+    <form id="join-form">
+      <input id="nickname" aria-label="닉네임" placeholder="닉네임" required maxlength="16">
+      <input id="code" aria-label="방 코드" placeholder="방 코드" maxlength="6" autocomplete="off" spellcheck="false">
+      <button class="action" name="intent" value="join">입장</button>
+      <button name="intent" value="create">방 만들기</button>
+    </form>
   </section>
-  <div class="board-scroll" role="region" aria-label="20 × 20 게임판" tabindex="0">
-    <div id="board"></div>
+  <p id="connection" role="status"></p>
+
+  <div class="arena">
+    <aside id="left" class="rail" aria-label="왼쪽 상대"></aside>
+    <section class="panel player">
+      <div class="player-heading">
+        <div><p class="eyebrow">MY BOARD · 20 × 20</p><h2 id="player-name">내 게임판</h2></div>
+        <button id="start" class="action" type="button">혼자 시작</button>
+      </div>
+      <section class="stats" aria-label="게임 현황">
+        <div><span>점수</span><strong id="score">0</strong></div>
+        <div><span>남은 시간</span><strong id="time">2:00</strong></div>
+        <div><span>남은 타일</span><strong id="remaining">0</strong></div>
+      </section>
+      <div id="board" aria-label="20 × 20 내 게임판"></div>
+      <p id="status" role="status">시작을 누르면 2분이 주어져요.</p>
+    </section>
+    <aside id="right" class="rail" aria-label="오른쪽 상대"></aside>
   </div>
-  <p id="status" role="status">시작을 누르면 2분이 주어져요.</p>
-  <div class="controls">
-    <button id="start" class="action" type="button">시작</button>
-  </div>
-  <dialog id="result" aria-labelledby="result-title">
+
+  <details class="rules">
+    <summary>게임 방법</summary>
+    <p>빈칸을 누르면 상하좌우에서 가장 가까운 타일을 확인해요. 같은 색이 2개 이상이면 해당 타일이 사라지고 타일당 1점을 얻어요. 매칭에 실패하면 내 시간이 10초 줄어요. 멀티플레이에서는 모두 같은 게임판으로 동시에 시작해 각자의 점수를 겨뤄요.</p>
+  </details>
+
+  <dialog id="result" class="panel" aria-labelledby="result-title">
     <h2 id="result-title"></h2>
     <p>최종 점수 <strong id="result-score"></strong></p>
-    <form method="dialog">
-      <button class="action" type="submit" autofocus>확인</button>
-    </form>
+    <form method="dialog"><button class="action" autofocus>확인</button></form>
   </dialog>
 </main>
-<script>
-  'use strict';
-
-  const size = 20;
-  const targetPairs = 160;
-  const roundMs = 120_000;
-  const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const colors = [
-    ['#ff5577', '분홍'],
-    ['#ff9c4d', '주황'],
-    ['#fbef7d', '노랑'],
-    ['#83e6a1', '초록'],
-    ['#7adcf3', '하늘'],
-    ['#a69bff', '보라'],
-    ['#f4c8ed', '연분홍']
-  ];
-  const board = document.querySelector('#board');
-  const scoreText = document.querySelector('#score');
-  const timeText = document.querySelector('#time');
-  const remainingText = document.querySelector('#remaining');
-  const status = document.querySelector('#status');
-  const startButton = document.querySelector('#start');
-  const result = document.querySelector('#result');
-  const resultTitle = document.querySelector('#result-title');
-  const resultScore = document.querySelector('#result-score');
-  let tiles = Array(size * size).fill(null);
-  let score = 0;
-  let remaining = 0;
-  let deadline = 0;
-  let timer;
-
-  function scan(cells, origin, [dr, dc]) {
-    let row = Math.floor(origin / size) + dr;
-    let col = origin % size + dc;
-    let lastEmpty = null;
-    while (row >= 0 && row < size && col >= 0 && col < size) {
-      const index = row * size + col;
-      if (cells[index] !== null) return { nearest: index, lastEmpty };
-      lastEmpty = index;
-      row += dr;
-      col += dc;
-    }
-    return { nearest: null, lastEmpty };
-  }
-
-  function matchesAt(cells, origin) {
-    if (cells[origin] !== null) return [];
-    const nearest = directions.map(direction => scan(cells, origin, direction).nearest)
-      .filter(index => index !== null);
-    return nearest.filter(index => nearest.some(
-      other => other !== index && cells[other] === cells[index]
-    ));
-  }
-
-  function choose(items) {
-    return items[Math.floor(Math.random() * items.length)];
-  }
-
-  function makeBoard() {
-    const cells = Array(size * size).fill(null);
-    const colorIds = colors.map((_, index) => index);
-    // Place removable pairs in reverse order so each new board has a solution.
-    for (let pair = 0; pair < targetPairs; pair++) {
-      const placements = [];
-      const start = Math.floor(Math.random() * cells.length);
-      for (let offset = 0; offset < cells.length && placements.length === 0; offset++) {
-        const origin = (start + offset) % cells.length;
-        if (cells[origin] !== null) continue;
-        const rays = directions.map(direction => scan(cells, origin, direction));
-        for (const [index, first] of rays.entries()) {
-          if (first.lastEmpty === null) continue;
-          for (const second of rays.slice(index + 1)) {
-            if (second.lastEmpty === null) continue;
-            const visible = rays.filter(ray => ray !== first && ray !== second && ray.nearest !== null)
-              .map(ray => cells[ray.nearest]);
-            if (new Set(visible).size !== visible.length) continue;
-            const palette = colorIds.filter(color => !visible.includes(color));
-            placements.push({ first: first.lastEmpty, second: second.lastEmpty, palette });
-          }
-        }
-      }
-      if (placements.length === 0) break;
-      const { first, second, palette } = choose(placements);
-      const color = choose(palette);
-      cells[first] = cells[second] = color;
-    }
-    return cells;
-  }
-
-  const buttons = tiles.map((_, index) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'cell';
-    button.addEventListener('click', () => play(index));
-    board.append(button);
-    return button;
-  });
-
-  function renderBoard() {
-    buttons.forEach((button, index) => {
-      const color = colors[tiles[index]];
-      const position = `${Math.floor(index / size) + 1}행 ${index % size + 1}열`;
-      button.disabled = deadline === 0;
-      button.tabIndex = color ? -1 : 0;
-      button.classList.toggle('tile', Boolean(color));
-      button.setAttribute('aria-label', `${position}, ${color ? color[1] + ' 타일' : '빈칸'}`);
-      if (color) button.style.setProperty('--tile', color[0]);
-      else button.style.removeProperty('--tile');
-    });
-    scoreText.textContent = score;
-    remainingText.textContent = remaining;
-  }
-
-  function showTime(ms) {
-    const seconds = Math.ceil(Math.max(0, ms) / 1000);
-    timeText.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-    timeText.classList.toggle('urgent', seconds <= 20);
-  }
-
-  function finish(title, message) {
-    clearInterval(timer);
-    deadline = 0;
-    status.textContent = message;
-    startButton.textContent = '다시 시작';
-    startButton.disabled = false;
-    renderBoard();
-    resultTitle.textContent = title;
-    resultScore.textContent = `${score}점`;
-    result.showModal();
-  }
-
-  function updateTime() {
-    const left = deadline - performance.now();
-    showTime(left);
-    if (left <= 0) finish('시간 종료', `시간 종료! 최종 점수는 ${score}점이에요.`);
-  }
-
-  function play(index) {
-    if (deadline === 0 || tiles[index] !== null) return;
-    if (performance.now() >= deadline) {
-      updateTime();
-      return;
-    }
-    const matches = matchesAt(tiles, index);
-    if (matches.length === 0) {
-      deadline -= 10_000;
-      status.textContent = '같은 색이 없어요. 남은 시간 −10초';
-      updateTime();
-      return;
-    }
-    for (const match of matches) tiles[match] = null;
-    score += matches.length;
-    remaining -= matches.length;
-    if (remaining === 0) {
-      const elapsed = Math.ceil((roundMs - Math.max(0, deadline - performance.now())) / 1000);
-      finish('클리어!', `클리어! ${score}점 · 제한 시간 ${elapsed}초 사용`);
-      return;
-    }
-    status.textContent = `+${matches.length}점!`;
-    renderBoard();
-  }
-
-  startButton.addEventListener('click', () => {
-    tiles = makeBoard();
-    score = 0;
-    remaining = tiles.filter(tile => tile !== null).length;
-    deadline = performance.now() + roundMs;
-    status.textContent = '빈칸을 골라 같은 색 타일을 모아 보세요.';
-    startButton.disabled = true;
-    renderBoard();
-    showTime(roundMs);
-    timer = setInterval(updateTime, 100);
-  });
-  renderBoard();
-</script>
 </body>
 </html>
